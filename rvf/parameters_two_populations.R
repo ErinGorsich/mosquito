@@ -40,7 +40,7 @@ rho1.vh <- 0.38
 
 # Transmission rates for population 2
 rho2.hv <- 2 * 0.12
-rho2.vh <- 2* 0.38
+rho2.vh <- 2 * 0.38
 
 # blood feeding rate (f in equations)
 bite = 365 * 4  # a in equations

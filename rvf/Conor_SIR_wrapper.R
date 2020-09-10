@@ -20,13 +20,20 @@ source('to_make_plots.R', chdir = TRUE)
 # bring up a window so you can choose this manually. This means you do not have
 # to specify the file location when running the model. I recommend you name these
 # intelligently. Each file must create a list called params.
-# 3. times = a time vector specifying the units you would like solutions for. 
+# 3. initial.mosquito.numbers = vector of length number.mosquitoes
+# 4. times = a time vector specifying the units you would like solutions for. 
 # The default is to run the model for 5 years, so I recommend you ignore this one.
-# 4. output.file = TRUE/FALSE depending on if you want an output file. 
+# 5. output.file = TRUE/FALSE depending on if you want an output file. 
 # The default is TRUE; set to FALSE if you don't want to save a file, ignore otherwise.
-# 5. output.name = what do you want to name the file?
+# 6. output.name = what do you want to name the file?
 
 # Example of how it works...
-sol <- run_one(number.mosquitoes = 1, output.name = "test")
+sol <- run_one(number.mosquitoes = 1, initial.mosquito.numbers = c(20), 
+               output.name = "test")
 plot_hosts(sol)
 plot_vectors(sol)
+
+# Example of how it works...
+sol <- run_one(number.mosquitoes = 2, initial.mosquito.numbers = c(10, 20), 
+               output.name = "test")
+

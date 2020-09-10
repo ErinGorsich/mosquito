@@ -1,0 +1,246 @@
+---
+title: 'Summary of environmental co-variates for SA RVF project'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/GitHub/mosquito/environmental_data")
+x <- c("rgdal", "rgeos", "maptools", "sp", "sf", "raster", 
+       "ggplot2", "RColorBrewer", "reshape2")
+lapply(x, library, character.only = TRUE)
+loc.dir <- "/Users/u1774615/GitHub/mosquito/environmental_data/country/"
+data.dir <- "/Users/u1774615/GitHub/mosquito/environmental_data/"
+
+sa <- readOGR(dsn = loc.dir, layer = "zaf_admbnda_adm0_2016SADB_OCHA")
+province <- readOGR(dsn = loc.dir, layer = "zaf_admbnda_adm1_2016SADB_OCHA")
+province.red <- gSimplify(province, tol = 0.001, topologyPreserve = TRUE)
+province.red <- SpatialPolygonsDataFrame(province.red, data = province@data)
+province.sf <- as(province.red, "sf")
+
+district <- readOGR(dsn = loc.dir, layer = "zaf_admbnda_adm2_2016SADB_OCHA")
+district.red <- gSimplify(district, tol = 0.001, topologyPreserve = TRUE)
+district.red <- SpatialPolygonsDataFrame(district.red, data = district@data)
+district.sf <- as(district.red, "sf")
+
+municipality<- readOGR(dsn = loc.dir, layer = "zaf_admbnda_adm3_2016SADB_OCHA")
+municipality.red<- gSimplify(municipality, tol = 0.001, topologyPreserve = TRUE)
+municipality.red <- SpatialPolygonsDataFrame(municipality.red, 
+                                             data = municipality@data)
+municipality.sf <- as(municipality.red, "sf")
+
+# Read in study sites
+peter <- read.csv("diptanks.csv")
+df <- SpatialPointsDataFrame(coords = cbind(peter$long, peter$lat), 
+                             proj4string = sa@proj4string, data = peter)
+df.sp <- SpatialPoints(coords = cbind(peter$long, peter$lat), 
+                       proj4string = sa@proj4string)
+df.sf <- st_as_sf(peter, coords = c("long", "lat"), crs = st_crs(sa@proj4string)) 
+    
+# An easier way for to get administrative boundaries in the future
+#moz <- getData('GADM', country = 'MZ', download = TRUE, path =loc.dir, level=1)
+sz <- getData('GADM', country = 'SZ', download = TRUE, path = loc.dir, level=0)
+moz <- readRDS(paste0(loc.dir, "gadm36_MOZ_1_sp.rds"))
+moz.red<- gSimplify(moz, tol = 0.001, topologyPreserve = TRUE)
+moz.red <- SpatialPolygonsDataFrame(moz.red, data = moz@data)
+moz.sf <- as(moz.red, "sf")
+
+# Swaziland
+sz <- readRDS(paste0(loc.dir, "gadm36_SWZ_0_sp.rds"))
+sz.red<- gSimplify(sz, tol = 0.001, topologyPreserve = TRUE)
+sz.red <- SpatialPolygonsDataFrame(sz.red, data = sz@data)
+sz.sf <- as(sz.red, "sf")
+```
+
+
+# Modis Datasets
+Four datasets based on moderate-resolution imaging spectoradiometer (MODIS) satellite products from the MODIS sensor on Terra from May 2016 to April 2020. All datasets are version 6 products for quality control. 
+
+### NDVI
+- NDVI and EVI are derived from MOD13Q1 product at 250m resolution (https://lpdaac.usgs.gov/products/mod13q1v006/). These are 16d composites, with the value for a given pixel assigned to the 'best' values over that period. As a results, specific dates may vary from location to location. Valid values range from -2000-10000, these need multiplied by 0.0001. 
+- NDVI results are summarized in ndvi.csv; EVI is based in evi.csv. The datasets contain columns for diptank; date; NDVI or EVI values at that diptank; median values across 1,2,3, and 4km buffer rings; and the variance in  values in those buffer rings.
+
+```{r ndvi, echo=FALSE}
+ndvi <- read.csv("ndvidata.csv")
+ndvi$ras <- ndvi$ras.0 * 0.0001
+ndvi$date.quick <- as.Date(ndvi$approx.date)
+# NDVI map
+# Plot NDVI over time by village
+ggplot(data = ndvi, aes(x = date.quick, y = ras, color = Diptank)) + 
+    geom_point() + geom_line() + theme_minimal() + ylab("ndvi") + 
+    xlab("date hack") + 
+    theme(legend.position = "right", legend.title = element_blank())
+
+# Median by buffer size for each village
+temp <- c("2016-10-15", "2017-01-01", "2017-02-18", "2018-04-23")
+ndvi2 <- subset(ndvi, approx.date %in% temp)
+ndvi2$one <- ndvi2$ras.med.1k * 0.0001
+ndvi2$two <- ndvi2$ras.med.2k * 0.0001
+ndvi2$three <- ndvi2$ras.med.3k * 0.0001
+ndvi2$four <- ndvi2$ras.med.4k * 0.0001
+measure.vars <- c("ras", "one", "two", "three", "four")
+other.vars <- colnames(ndvi2)[!(colnames(ndvi2) %in% measure.vars)]
+ndvi.melt <- melt(ndvi2, id.vars = other.vars)
+ggplot(data = ndvi.melt, aes(x = variable, y = value, color = Diptank)) + 
+    facet_wrap(~date.quick) + geom_point() + 
+    ylab("median ndvi") + 
+    xlab("buffer radius (km)") + theme(legend.position = "none")
+
+# ndviras <- raster(paste0(data.dir, "NDVI.EVI/MOD13Q1.A2020033.250m_16_days_NDVI.tif"))
+# ndviras <- projectRaster(ndviras, crs(df.sp))# transform
+# # convert to correct units
+# ndviras <- crop(ndviras, b) # crop
+#     
+# # NDVI data for Feb 2020
+# b <- data.frame(lat = c(-26.5, -26.5, -28.5, -28.5), 
+#                 long = c(31.2, 33.2, 31.2, 33.2))
+# b <- SpatialPoints(coords = cbind(b$long, b$lat), proj4string = df.sp@proj4string)
+# 
+# 
+# goats_cropped <- crop(goat_raster, b)
+# 
+# # Cows
+# ##############################################################
+# ggplot() + 
+#     geom_raster(data = as.data.frame(cows_cropped, xy = TRUE),
+#                 aes(x = x, y = y, fill = X5_Ct_2010_Da)) +
+#     scale_fill_distiller(palette = 18, na.value = "transparent", direction = 1) +
+#     geom_sf(data = municipality.sf, fill = NA) + 
+#     geom_sf(data = df.sf) +
+#     theme_minimal() + theme(legend.title = element_blank()) + 
+#     xlab("") + ylab("") + ggtitle(label = "Head of cattle (GLW)") + 
+#     ylim(-27.5, -26.7) + xlim(31.8, 33)
+
+
+```
+
+### EVI
+- Details above
+- Sedda et al. (2019) argue "EVI improves sensitivity over dense vegetation conditions or heterogeneous landscapes"
+
+```{r evi, echo=FALSE}
+evi <- read.csv("evidata.csv")
+# Plot NDVI over time by village
+evi$ras <- evi$ras.0 * 0.0001
+evi$date.quick <- as.Date(evi$approx.date)
+# NDVI map
+# Plot NDVI over time by village
+ggplot(data = evi, aes(x = date.quick, y = ras, color = Diptank)) + 
+    geom_point() + geom_line() + theme_minimal() + ylab("evi") + 
+    xlab("date hack") + theme(legend.position = "none")
+
+# Variance by buffer size for each village
+evi2 <- subset(evi, approx.date %in% temp)
+evi2$one <- evi2$ras.med.1k * 0.0001
+evi2$two <- evi2$ras.med.2k * 0.0001
+evi2$three <- evi2$ras.med.3k * 0.0001
+evi2$four <- evi2$ras.med.4k * 0.0001
+measure.vars <- c("ras", "one", "two", "three", "four")
+evi.melt <- melt(evi2, id.vars = other.vars)
+ggplot(data = evi.melt, aes(x = variable, y = value, color = Diptank)) + 
+    facet_wrap(~date.quick) + geom_point() + 
+    ylab("median evi") + 
+    xlab("buffer radius (km)") + theme(legend.position = "none")
+
+```
+
+### Air temperature
+- Daytime air temperate at the closest level to the earth's surface is derived from the land surface temperature and emissivity (LSTE) MODIS product, MOD11C2  (https://lpdaac.usgs.gov/products/mod11c2v006/). These are 8-day composites, with the value for a given pixel corresponding to the average value over good observation days from the component observations. Values are provided at 0.05 deg or approximately 5km resolution, so no buffers are considered. Valid values range from 7500 to 65535; when multiplied by 0.02 they represent Kelvins. 
+- Air temperature results are summarized in lst.csv.
+
+```{r , echo = FALSE, message = FALSE}
+lst <- read.csv("lstdata.csv")
+lst$ras <- lst$ras.0 * 0.02
+lst$date.quick <- as.Date(lst$approx.date)
+ggplot(data = lst, aes(x = date.quick, y = ras, color = Diptank)) + 
+    geom_point() + geom_line() + theme_minimal() + ylab("et") + 
+    xlab("date") + theme(legend.position = "none")
+```
+
+### Evapotranspiration
+- Evapotranspiration is derived from the Evapotraspiration/Latent Heat Flux product MOD16A2GF.  It is a gap-filled 8-day composite, with pixel values representing the sum of all eight days within the period. Values are provided at a 500m resolution. Valid values range from -32767 to 32700, with scale factor 0.1 and units kg/m2/8day.
+- Evapotranspiration results are summarized in et.csv.
+
+```{r lst, echo = FALSE, message = FALSE}
+et <- read.csv("etdata.csv")
+et$ras <- et$ras.0 * 0.1
+et$date.quick <- as.Date(et$approx.date)
+ggplot(data = et, aes(x = date.quick, y = ras, color = Diptank)) + 
+    geom_point() + geom_line() + theme_minimal() + ylab("et") + 
+    xlab("date") + theme(legend.position = "bottom", 
+                              legend.title = element_blank())
+
+# Variance by buffer size for each village
+# temp <- c("2016-10-23", "2017-01-01", "2017-02-18", "2017-04-23")
+# et2 <- subset(et, approx.date %in% temp)
+# measure.vars <- c("ras.var.1k", "ras.var.2k", "ras.var.3k", "ras.var.4k")
+# other.vars <- colnames(et2)[!(colnames(et2) %in% measure.vars)]
+# et.melt <- melt(et2, id.vars = other.vars)
+# ggplot(data = et.melt, aes(x = variable, y = value, color = Diptank)) + 
+#     facet_wrap(~date.quick) + geom_point() + 
+#     ylab("variance evi (*10)") + 
+#     xlab("buffer size") + theme(legend.position = "none")
+```
+
+# Gridded Livestock Map of the World
+- Information from the 2010 gridded livestock map of the world (GLW). GLW provides population densities at 0.083 or approximately 10km resolution. It is the results of a Random Forest algorithm applied to census data from all of Africa, and average census resolutions are particularly high in SA. Once census covers our whole study area, such that variation comes from model predictions. Values represent animal totals not densities. 
+- Note much uncertainty in the gridded livestock map data-sets (Gilbert et al. 2019. Scientific Data).
+- QUESTIONS FOR PETER: Suggestions for good livestock densities and age structure in the area?
+
+```{r glw, echo = FALSE, message = FALSE}
+cow.dir <- "/Users/u1774615/GitHub/mosquito/environmental_data/livestock/"
+cattle_raster <- raster(paste0(cow.dir, "5_Ct_2010_Da.tif")) 
+goat_raster <- raster(paste0(cow.dir, "5_Gt_2010_Da.tif"))
+
+b <- data.frame(lat = c(-26.5, -26.5, -28.5, -28.5), 
+                long = c(31.2, 33.2, 31.2, 33.2))
+b <- SpatialPoints(coords = cbind(b$long, b$lat), proj4string = df.sp@proj4string)
+
+cows_cropped <- crop(cattle_raster, b)
+goats_cropped <- crop(goat_raster, b)
+
+# Cows
+##############################################################
+ggplot() + 
+    geom_raster(data = as.data.frame(cows_cropped, xy = TRUE),
+                aes(x = x, y = y, fill = X5_Ct_2010_Da)) +
+    scale_fill_distiller(palette = 18, na.value = "transparent", direction = 1) +
+    geom_sf(data = municipality.sf, fill = NA) + 
+    geom_sf(data = df.sf) +
+    theme_minimal() + theme(legend.title = element_blank()) + 
+    xlab("") + ylab("") + ggtitle(label = "Head of cattle (GLW)") + 
+    ylim(-27.5, -26.7) + xlim(31.8, 33)
+
+# Goat data
+##############################################################
+ggplot() + 
+    geom_raster(data = as.data.frame(goats_cropped, xy = TRUE),
+                aes(x = x, y = y, fill = X5_Gt_2010_Da)) +
+    scale_fill_distiller(palette = 18, na.value = "transparent", direction = 1) +
+    geom_sf(data = municipality.sf, fill = NA) + 
+    geom_sf(data = df.sf) +
+    theme_minimal() + theme(legend.title = element_blank()) + 
+    xlab("") + ylab("") + ggtitle(label = "Head of goat (GLW)") + 
+    ylim(-27.5, -26.7) + xlim(31.8, 33)
+```
+
+
+
+```{r compare_glm, echo=FALSE}
+diptanks <- read.csv("diptanks_withGLM.csv")
+ggplot(diptanks, aes(x = cattle, y = cows)) + geom_point() +
+    ylab("Head in GLW dataset") + xlab("Head in Peter's dataset") + 
+    theme_minimal()
+# Compare head in GLM vs. Peter's
+##############################################################
+# df <- read.csv(diptanks_withGLM.csv)
+# ggplot(data = df, aes(x = cattle, y = cows)) + 
+#     geom_point() + theme_minimal() + 
+#     xlab("Head in Peter's dataset") + 
+#     ylab("Head in 10km GLW unit")
+# 
+# print("If time, add two barplot to see if rank order is the same in the different datasets...")
+```
+
