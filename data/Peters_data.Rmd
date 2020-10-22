@@ -1,0 +1,150 @@
+---
+title: "Peter's data"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+# Clear the workspace.
+rm(list = ls())
+
+# Load in data manipulation libraries.
+library(tidyr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+# Load in the raw serological cattle data. 
+setwd("/Users/u1774615/GitHub/mosquito/data") # FIX ME
+source("Peters_data_conversion_functions.R")
+sero <- read.csv("raw/ndumo_cattle.csv", header=TRUE)
+
+# Convert the date column to a date type.
+sero$DATE <- as.Date(sero$date, format="%d%b%Y")
+
+# Round down the animal age to:
+# (i) an integer,
+# (ii) maximum of age 9.
+df <- sero %>%
+    mutate(AGE = floor(age_y)) %>%
+    mutate(AGE = ifelse(AGE > 9, 9, AGE))
+```
+
+## Data Summary
+
+```{r summary, echo = FALSE}
+# Summarize data
+t <- data.frame(table(df$animal_id))
+print(paste("number of samples:", length(df[,1])))
+print(paste("number of unique animal IDs:", length(t[,1])))
+
+# Some strange animal names, but looks unique:
+# df[df$animal_id == "no tag 1s",] # follow up sequence looks good
+# df[df$animal_id == "no tag 2s",] # follow up sequence looks good
+# df[df$animal_id == "no tag 1",]  # rvf- and no follow-up
+# df[df$animal_id == "no tag 2",]  # rvf- and no follow-up
+# df[df$animal_id == "wrong tag",] # rvf- and no follow-up
+# df[df$animal_id == "pinktag",] # rvf- and no follow-up
+```
+
+## Descriptive information about age
+
+The median age at first capture is 4 years. This is largely consistent accross villages except the median ages at sites 1 and 6 are 5 years and 3 years respectively. Plot shows number of animals in each age.
+
+```{r age, echo=FALSE}
+# Age at first capture (gives only unique ids)
+first <- df[df$DATE < as.Date("2016-09-09"), ]
+# quantile(first$AGE) # median 4
+# tapply(first$AGE, first$place, quantile) # largely consistent
+ggplot(first, aes(AGE)) + geom_bar() + facet_wrap(~place)
+```
+
+
+## Age-prevalence and village-prev at first capture
+Variation by village, but not a clear bias other than in sampling in village 3. 
+
+```{r ageprev, echo=FALSE}
+print(paste("overall prevalence at first capture:", 
+length(first$rvf[first$rvf == 1])/length(first$rvf)))
+
+#ggplot(first, aes(x= AGE)) + geom_bar() + facet_wrap(~rvf)
+#tapply(first$AGE, first$rvf, quantile) # consistent
+
+# Age-prev at first capture 
+ggplot(first, aes(x = AGE, fill = as.factor(rvf))) + geom_bar()
+
+# Prev at first capture by village
+ggplot(first, aes(x = as.factor(place), fill = as.factor(rvf))) + geom_bar()
+
+```
+
+## Are capture periods distinct?
+Yes, but for some sites more than others. Figure is counts by date, with second version only includes recapture periods. 
+Note that villages 4 & 8 will only inform the model via initial captures.
+
+```{r timing, echo=FALSE}
+ggplot(df, aes(DATE)) + geom_histogram() + facet_wrap(~place) + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggplot(subset(df, df$DATE > as.Date("2016-11-20")), aes(DATE)) + 
+    geom_histogram() + facet_wrap(~place) + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+## Seroconversion
+Number of new infections by diptank
+
+```{r lump, echo=FALSE}
+one <- get_one_village(1)
+for(i in 2:9){
+    t <- get_one_village(i)
+    one <- rbind(one, t)
+}
+ggplot(one, aes(x = date.start, y = num_seroconvert, 
+    fill = as.factor(diptankid))) + geom_col() + 
+    theme(legend.position = "bottom")
+
+ggplot(one, aes(x = date.start, y = num_tested, 
+    fill = as.factor(diptankid))) + geom_col() + 
+    theme(legend.position = "bottom")
+```
+
+
+## Guess capture periods that work for sites 5,6,7 9
+Focus on these because 4 & 8 only include first capture
+Sites 1 & 2 were rarely sampled so figure them out later!
+
+```{r guess, echo=FALSE}
+#t <- df[df$place %in% c(5, 6, 7, 9),]
+t <- df[df$place %in% c(1, 2, 3, 5, 6, 7, 9),]
+
+# unique(t$DATE); length(unique(t$DATE))
+ggplot(subset(t, t$DATE > as.Date("2016-11-20")), 
+       aes(DATE, fill = as.factor(place))) +
+    geom_histogram(bins = 200) + #facet_wrap(~place) + 
+    scale_x_date(date_breaks = "1 month") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+```{r animal_id, echo=FALSE}
+make_one_plot = function(place_number){
+    t <- df[df$place %in% c(place_number), ]
+    t$monthdate <- floor_date(t$DATE, 'month')
+    if (place_number %in% c(1, 2, 3)){
+        plotdf <- t
+    } else{
+        plotids <- t$animal_id[t$DATE > as.Date("2016-11-20")]
+        plotdf <- subset(t, t$animal_id %in% plotids)
+    }
+    ggplot(plotdf,
+       aes(x = monthdate, y = animal_id, fill = as.factor(rvf))) +
+        geom_tile() + 
+        scale_x_date(date_breaks = "1 month") + 
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+            axis.text.y = element_text(size = 6)) + 
+        ggtitle(paste0("village: ", place_number))
+}
+make_one_plot(5)
+make_one_plot(6)
+make_one_plot(7)
+make_one_plot(9)
+```

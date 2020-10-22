@@ -1,0 +1,46 @@
+---
+title: "Summary of Feb 2019 environmental co-variates for SA RVF project"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+landcover <- raster(paste0(data.dir, "SA land cover/SANLC 2018 Land Cover/SA_NLC_2018_GEO.tif"))
+plot(landcover)
+
+b <- data.frame(lat = c(-26.5, -26.5, -28.5, -28.5), 
+                long = c(31.2, 33.2, 31.2, 33.2))
+b <- SpatialPoints(coords = cbind(b$long, b$lat), proj4string = df.sp@proj4string)
+lc_cropped <- crop(landcover, b)
+lc.salcc_1 <- deratify(lc_cropped, 'SALCC_1')
+lc.salcc_2 <- deratify(lc_cropped, 'SALCC_2')
+
+ggplot() + 
+    geom_raster(data = as.data.frame(lc.salcc_1, xy = TRUE),
+                aes(x = x, y = y, fill = SALCC_1)) +
+    geom_sf(data = municipality.sf, fill = NA) + 
+    geom_sf(data = df.sf) +
+    theme_minimal() + theme(legend.title = element_blank()) + 
+    xlab("") + ylab("") + ggtitle(label = "Land Use Category") + 
+    ylim(-27.5, -26.7) + xlim(31.8, 33)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -1,0 +1,98 @@
+setwd("~/GitHub/mosquito/environmental_data")#
+download = FALSE#
+loc.dir <- "/Users/u1774615/GitHub/mosquito/environmental_data/country/"#
+data.dir <- "/Users/u1774615/GitHub/mosquito/environmental_data/"#
+x <- c("rgdal", "rgeos", "maptools", "sp", "sf", "raster", "MODIS",#
+       "gdalUtils", "ggplot2", "RColorBrewer") #
+lapply(x, library, character.only = TRUE)
+# Read in study sites#
+peter <- read.csv("diptanks.csv")#
+df <- SpatialPointsDataFrame(coords = cbind(peter$long, peter$lat), #
+                             proj4string = sa@proj4string, data = peter)#
+df.sp <- SpatialPoints(coords = cbind(peter$long, peter$lat), #
+                       proj4string = sa@proj4string)#
+df.sf <- st_as_sf(peter, coords = c("long", "lat"), crs = st_crs(sa@proj4string))
+sa <- readOGR(dsn = loc.dir, layer = "zaf_admbnda_adm0_2016SADB_OCHA")
+# Read in study sites#
+peter <- read.csv("diptanks.csv")#
+df <- SpatialPointsDataFrame(coords = cbind(peter$long, peter$lat), #
+                             proj4string = sa@proj4string, data = peter)#
+df.sp <- SpatialPoints(coords = cbind(peter$long, peter$lat), #
+                       proj4string = sa@proj4string)#
+df.sf <- st_as_sf(peter, coords = c("long", "lat"), crs = st_crs(sa@proj4string))
+ndvi <- list.files(path = paste0(data.dir, "NDVI.EVI"), pattern = "NDVI.tif")#
+evi <- list.files(path = paste0(data.dir, "NDVI.EVI"), pattern = "EVI.tif")
+head(ndvi)
+head(evi)
+ndvi <- ndvi[1:5]
+evi <- evi[1:5]
+list.ndvi <- paste0(data.dir, "NDVI.EVI/", ndvi)#
+ndvilist <- lapply(list.ndvi, raster)
+head(ndvilist)
+list.evi <- paste0(data.dir, "NDVI.EVI/", evi)#
+evilist <- lapply(list.evi, raster)  #
+#
+date <- list.files(path = paste0(data.dir, "NDVI.EVI"), pattern = "year.tif")
+date <- date[1:5]
+list.date <- paste0(data.dir, "NDVI.EVI/", date)#
+datelist <- lapply(list.date, raster)
+# want Peter's data points at this projection...#
+projection <- "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181 +units=m +no_defs"#
+df.transform <- spTransform(df, projection)#
+df.transform@data <- df@data#
+df.transform.sf <- as(df.transform, "sf")
+str(df.transform.sf)
+str(df.transform)
+get_buffer = function(raster, location, size){#
+    med <- extract(x = raster, y = location, buffer = size, fun = median)#
+    var <- extract(x = raster, y = location, buffer = size, #
+                   fun = function(x) if (!is.null(x)) var(x, na.rm=TRUE))#
+    return(c(med, var))#
+}
+head(df)
+diptank <- df$diptanks[1]
+diptank
+diptank <- df$Diptank
+ndvilist
+names(ndvilist)
+names(ndvilist[[1]])
+rastlist <- ndvilist
+datelist
+length(rastlist) == length(datelist)
+names(rastlist[[1]])
+strsplit(names(rastlist[[1]]))
+strsplit(names(rastlist[[1]]), ".")
+strsplit(names(rastlist[[1]]), .)
+?strsplit
+strsplit(names(rastlist[[1]]), ".")
+strsplit(names(rastlist[[1]]), "[.]")
+ras <- rastlist[[1]]#
+            ras.date <- datelist[[1]]
+ras
+ras.date
+strsplit(names(ras), "[.]")[2] == strsplit(names(ras.date), "[.]")[2]
+strsplit(names(ras), "[.]")[2]
+strsplit(names(ras), "[.]")
+strsplit(names(ras), "[.]")[[1]][2] == strsplit(names(ras.date), "[.]")[[1]][2]
+ras.value <- extract(ras, loc)
+diptank
+diptank <- diptank[1]
+loc <- subset(df.transform.sf, Diptank == diptank)
+loc
+ras.value <- extract(ras, loc) #
+            date.value <- extract(ras.date, loc)
+ras.value
+date.value
+summary(ras)
+summary(ras)
+str(ras)
+approx.date <- extractDate(ras, asDate = TRUE)$inputLayerDates
+approx.date
+date.value
+med.var.1000 <- get_buffer(ras, loc, 1000)
+med.var.1000
+med.var.2000 <- get_buffer(ras, loc, 2000)#
+            med.var.3000 <- get_buffer(ras, loc, 3000)#
+            med.var.4000 <- get_buffer(ras, loc, 4000)
+c(diptank, date.value, approx.date, ras.value, med.var.1000, med.var.2000, #
+             med.var.3000, med.var.4000)
