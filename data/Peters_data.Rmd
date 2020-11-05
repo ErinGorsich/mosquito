@@ -15,7 +15,7 @@ library(ggplot2)
 
 # Load in the raw serological cattle data. 
 setwd("/Users/u1774615/GitHub/mosquito/data") # FIX ME
-source("Peters_data_conversion_functions.R")
+#source("Peters_data_conversion_functions.R")
 sero <- read.csv("raw/ndumo_cattle.csv", header=TRUE)
 
 # Convert the date column to a date type.
